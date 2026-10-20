@@ -17,7 +17,6 @@ flowchart LR
     isp --> fw[OPNsense router / firewall]
     fw -- wired --> server
     fw --> lan[Switch / Wi-Fi AP]
-    lan --> pi[Raspberry Pi<br/>WireGuard VPN]
 
     subgraph server[Main server · Intel N100 · OpenMediaVault + Docker]
         swag[SWAG reverse proxy<br/>wildcard TLS, DNS-01]
@@ -41,7 +40,6 @@ flowchart LR
 | Beelink Mini S12 Pro | Main server | Intel N100, 16GB RAM, OpenMediaVault, Docker |
 | └ NVMe SSD | OS / Docker | External fan added (thermals ~85°C → ~52°C) |
 | └ USB DAS | Data array | mergerfs pool + SnapRAID parity |
-| Raspberry Pi Zero | VPN | PiVPN/WireGuard |
 | Lanner FW-7551 | Router / firewall | Repurposed SD-WAN appliance running OPNsense; server wired directly |
 | Managed switch + Wi-Fi AP | LAN | AP mode, static non-DFS 5GHz channel |
 | Windows PC (RTX 3070) | GPU offload | Remote whisper.cpp transcription over the LAN |
