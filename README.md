@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/sassmastawillis/homelab/actions/workflows/ci.yml/badge.svg)
 
-Docker Compose stacks and operating notes for a self-hosted home server running 50+ containers. This repo documents **what runs, how it's configured, and how it's operated**: networking, SSO, monitoring, backups, and the incidents that shaped it.
+Docker Compose stacks and operating notes for a self-hosted home server running 50+ containers. This repo documents **what runs, how it's configured, and how it's operated**: networking, SSO, monitoring, backups,.
 
 > Public, sanitized copy of a private working repo. Domains are replaced with `example.com`, and every secret is an environment-variable reference. Real values live in git-ignored `.env` files on the server.
 
@@ -14,11 +14,10 @@ Docker Compose stacks and operating notes for a self-hosted home server running 
 flowchart LR
     internet((Internet)) --> cf[Cloudflare<br/>DNS + Tunnel]
     internet --> isp[ISP gateway<br/>IP passthrough]
-    isp --> fw[Firewall<br/>pfSense / OPNsense]
-    fw --> lan[LAN switch / Wi-Fi AP]
-
-    lan --> server
-    lan --> pi[Raspberry Pi<br/>DNS failover + WireGuard VPN]
+    isp --> fw[OPNsense router / firewall]
+    fw -- wired --> server
+    fw --> lan[Switch / Wi-Fi AP]
+    lan --> pi[Raspberry Pi<br/>WireGuard VPN]
 
     subgraph server[Main server · Intel N100 · OpenMediaVault + Docker]
         swag[SWAG reverse proxy<br/>wildcard TLS, DNS-01]
@@ -42,15 +41,15 @@ flowchart LR
 | Beelink Mini S12 Pro | Main server | Intel N100, 16GB RAM, OpenMediaVault, Docker |
 | └ NVMe SSD | OS / Docker | External fan added (thermals ~85°C → ~52°C) |
 | └ USB DAS | Data array | mergerfs pool + SnapRAID parity |
-| Raspberry Pi Zero | Secondary DNS, VPN | AdGuard Home (failover), PiVPN/WireGuard |
-| Lanner FW-7551 | Firewall / router | Repurposed SD-WAN appliance; DHCP, NAT, firewall rules |
+| Raspberry Pi Zero | VPN | PiVPN/WireGuard |
+| Lanner FW-7551 | Router / firewall | Repurposed SD-WAN appliance running OPNsense; server wired directly |
 | Managed switch + Wi-Fi AP | LAN | AP mode, static non-DFS 5GHz channel |
 | Windows PC (RTX 3070) | GPU offload | Remote whisper.cpp transcription over the LAN |
 
 ## Network & access model
 
 - **LAN:** single `/24`, DHCP pool `.100–.199`, static mappings for infrastructure outside the pool
-- **DNS:** AdGuard Home on the server and the Pi for network-wide filtering with failover
+- **DNS:** AdGuard Home on the server for network-wide filtering
 - **Admin and single-user apps** → reachable only over **WireGuard VPN**
 - **Shared or public apps** → **SWAG** reverse proxy (wildcard cert via Cloudflare DNS-01) or **Cloudflare Tunnel**, so no inbound ports are opened for tunneled services
 - **SSO** → **Authentik (OIDC)** in front of shared apps, with access restricted by group membership
@@ -97,7 +96,7 @@ Access: 🌐 public (SWAG/Tunnel, SSO where supported) · 🔒 LAN/VPN only
 | [authentik](stacks/authentik) | SSO / OIDC identity provider | 🌐 |
 | [swag](stacks/swag) | Reverse proxy, wildcard TLS cert | 🌐 |
 | [cloudflared](stacks/cloudflared) | Cloudflare Tunnel for public services | — |
-| [adguard](stacks/adguard) | DNS filtering (primary/replica with the Pi) | 🔒 |
+| [adguard](stacks/adguard) | DNS filtering | 🔒 |
 | [monitoring](stacks/monitoring) | VictoriaMetrics, vmagent, cAdvisor, node-exporter, Grafana | 🔒 |
 | [beszel](stacks/beszel) | Lightweight system + SMART monitoring | 🔒 |
 | [backrest](stacks/backrest) | restic backups → local + Backblaze B2 | 🔒 |
@@ -128,24 +127,3 @@ Access: 🌐 public (SWAG/Tunnel, SSO where supported) · 🔒 LAN/VPN only
 - **Write-heavy containers** (for example, Frigate) are stopped during SnapRAID sync to avoid parity conflicts
 - **Drive health:** Scrutiny + Beszel SMART monitoring
 - **Off-site:** Backrest (restic, encrypted) → Backblaze B2
-
----
-
-## Incident log
-
-Short write-ups of problems found and fixed on this server.
-
-| Incident | Root cause | Fix |
-|---|---|---|
-| Data pool unmounted for ~3 days; ~230GB written to the boot SSD | USB DAS dropouts and GPT corruption on one array disk; containers kept writing to the empty mount path on the boot drive | Repaired the partition table, remounted the pool, cleaned stray data off the boot drive |
-| SnapRAID sync repeatedly killed by the kernel OOM killer | ~50 containers with only ~1GB of swap; the nightly job ran during a busy window | Moved the job to 3am and added an 8GB swapfile for headroom |
-| Array disk flagged as likely to fail | SMART log errors; monitoring estimated a 41% one-year failure probability | Replaced the drive, copied data with rsync, swapped it into the mergerfs pool and SnapRAID config |
-| SnapRAID "cannot modify data disk during sync" errors | Frigate writes continuously to a data disk | Added Frigate to the services stopped during sync |
-| New stacks failed to start (no free address pools) | Docker's default network address pools exhausted | Defined `default-address-pools` in `daemon.json` |
-| NVMe SSD running at ~85°C | Passive cooling in a small chassis | Added external fan; temps dropped to ~52°C |
-
-## Roadmap
-
-- [ ] Manage Backblaze B2 buckets and keys with **Terraform**
-- [ ] Recovery runbooks: bare-metal rebuild from B2, failed-drive replacement, DNS failover
-- [ ] Pin image tags on stateful services (databases)
