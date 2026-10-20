@@ -1,3 +1,11 @@
 *.env
 !*.env.example
 *.txt
+
+# Terraform: state contains generated key secrets - never commit
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
+crash.log

@@ -17,6 +17,19 @@ jobs:
       - run: pip install yamllint
       - run: yamllint -c .yamllint.yml stacks/
 
+  terraform:
+    name: Terraform fmt + validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/b2-backups
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+
   secrets:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest

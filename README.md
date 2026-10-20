@@ -119,6 +119,10 @@ Access: 🌐 public (SWAG/Tunnel, SSO where supported) · 🔒 LAN/VPN only
 | [halcyon-video](stacks/halcyon-video) | Jellyfin client, built from source | 🔒 |
 | [wizarr](stacks/wizarr) | Media server user onboarding | 🌐 |
 
+## Infrastructure as code
+
+[`terraform/b2-backups`](terraform/b2-backups) provisions the off-site backup buckets in Backblaze B2, with one least-privilege application key per bucket. CI runs `terraform fmt` and `terraform validate` on every push.
+
 ## Storage & backups
 
 - **Array:** mergerfs pool with SnapRAID parity; nightly sync/scrub via `snapraid-aio` with email alerts
